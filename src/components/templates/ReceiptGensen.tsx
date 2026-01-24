@@ -133,7 +133,7 @@ export default function ReceiptGensen({ data, density = 'compact' }: ReceiptGens
                     </thead>
                     <tbody>
                         <tr>
-                            <td style={tdStyle}>Nominal Nenkin 20% (JPY)</td>
+                            <td style={tdStyle}>Nominal Gensen (JPY)</td>
                             <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>
                                 {formatJpy(data.nominalYen)}
                             </td>
