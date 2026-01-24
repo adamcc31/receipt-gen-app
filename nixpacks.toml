@@ -1,12 +1,11 @@
 # Nixpacks configuration for Railway
-# Ensures Puppeteer dependencies are available
+# Ensures Puppeteer/Chromium dependencies are available
 
 [phases.setup]
 aptPkgs = [
-  "chromium",
+  "chromium-browser",
   "fonts-liberation",
-  "libappindicator3-1",
-  "libasound2",
+  "libasound2t64",
   "libatk-bridge2.0-0",
   "libatk1.0-0",
   "libcups2",
@@ -35,4 +34,4 @@ cmd = "npm run start"
 
 [variables]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
+PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium-browser"
