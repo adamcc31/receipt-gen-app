@@ -1,0 +1,100 @@
+// Prisma schema for Receipt Management Application
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum BatchStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionType {
+  NENKIN_NORMAL
+  NENKIN_SPEED
+  GENSEN
+}
+
+enum TransactionStatus {
+  DRAFT
+  GENERATED
+}
+
+// ============================================
+// MODELS
+// ============================================
+
+/// Track upload history for Excel batches
+model BatchUpload {
+  id           String       @id @default(cuid())
+  filename     String
+  uploadDate   DateTime     @default(now()) @map("upload_date")
+  status       BatchStatus  @default(PENDING)
+  totalRecords Int          @default(0) @map("total_records")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  transactions Transaction[]
+
+  @@map("batch_uploads")
+}
+
+/// Store up to 1,000 transaction rows per batch
+model Transaction {
+  id                   String            @id @default(cuid())
+  batchId              String            @map("batch_id")
+  clientName           String            @map("client_name")
+  type                 TransactionType
+  rawNominalYen        Decimal           @db.Decimal(18, 2) @map("raw_nominal_yen")
+  regionalTaxYen       Decimal           @db.Decimal(18, 2) @default(0) @map("regional_tax_yen")
+  adminFeePercentage   Decimal           @db.Decimal(5, 4) @map("admin_fee_percentage")
+  taxRepresentativeFeeYen Decimal         @db.Decimal(18, 2) @default(0) @map("tax_representative_fee_yen")
+  taxFixed             Decimal           @db.Decimal(18, 2) @map("tax_fixed")
+  exchangeRate         Decimal           @db.Decimal(18, 6) @map("exchange_rate")
+  speedServiceFee      Decimal?          @db.Decimal(18, 2) @map("speed_service_fee")
+  additionalCostLabel  String?           @map("additional_cost_label")
+  additionalCostAmount Decimal?          @db.Decimal(18, 2) @map("additional_cost_amount")
+  shippingFeeIdr       Decimal           @db.Decimal(18, 2) @default(0) @map("shipping_fee_idr")
+  gensenYear           String?           @map("gensen_year")
+  note                 String?           @db.Text
+  finalNominalIdr      Decimal           @db.Decimal(18, 2) @map("final_nominal_idr")
+  status               TransactionStatus @default(DRAFT)
+  receiptNumber        String?           @map("receipt_number")
+  rowIndex             Int?              @map("row_index")
+  generatedAt          DateTime?         @map("generated_at")
+  pdfPath              String?           @map("pdf_path")
+  imagePath            String?           @map("image_path")
+  createdAt            DateTime          @default(now()) @map("created_at")
+  updatedAt            DateTime          @updatedAt @map("updated_at")
+
+  batch BatchUpload @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([status])
+  @@map("transactions")
+}
+
+/// Global settings to avoid hardcoded business logic
+model GlobalSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("global_settings")
+}
