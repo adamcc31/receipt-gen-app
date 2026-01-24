@@ -217,6 +217,11 @@ export default function ReceiptGensen({ data, density = 'compact' }: ReceiptGens
                 <div style={{ textAlign: 'right', marginTop: '12px', fontSize: '10px', color: '#6B7280' }}>
                     Tanggal Cetak: {data.date}
                 </div>
+
+                <div style={styles.thankYouMessage}>
+                    Terimakasih sudah menggunakan jasa Exata Indonesia dalam pengurusan Gensen kamu.<br />
+                    Share pengalaman terbaik kamu menggunakan exata ke Kohai dan teman teman kamu ya 😄
+                </div>
             </div>
         </div>
     );
@@ -413,5 +418,14 @@ const styles: Record<string, React.CSSProperties> = {
         color: '#9CA3AF',
         textAlign: 'center',
         marginTop: '12px',  // Reduced from 16px
+    },
+    thankYouMessage: {
+        textAlign: 'center',
+        marginTop: '20px',
+        fontSize: '11px',
+        color: '#4B5563',
+        lineHeight: '1.5',
+        fontStyle: 'italic',
+        fontWeight: 500,
     },
 };

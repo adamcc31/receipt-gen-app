@@ -99,7 +99,7 @@ export default function ReceiptNenkin({ data, density = 'compact' }: ReceiptNenk
                 <div style={{ ...styles.receiptBadge, backgroundColor: '#FFFFFF', border: `2px solid ${accent.primary}` }}>
                     <span style={{ ...styles.receiptType, color: accent.primary }}>年金</span>
                     <span style={{ ...styles.receiptTypeEn, color: accent.primary }}>
-                        {data.type === 'NENKIN_SPEED' ? 'NENKIN SPEED' : 'NENKIN'}
+                        {data.type === 'NENKIN_SPEED' ? 'SPEED SERVICE' : 'NORMAL'}
                     </span>
                 </div>
             </div>
@@ -201,7 +201,7 @@ export default function ReceiptNenkin({ data, density = 'compact' }: ReceiptNenk
                         </tr>
                         {hasShippingFee && data.grossIdr && (
                             <tr>
-                                <td style={tdStyle}>Total Rupiah Kotor</td>
+                                <td style={tdStyle}>Total Rupiah (Sebelum Potongan Ongkos Kirim)</td>
                                 <td style={{ ...tdStyle, textAlign: 'right' }}>
                                     {formatIdr(data.grossIdr)}
                                 </td>
@@ -209,7 +209,7 @@ export default function ReceiptNenkin({ data, density = 'compact' }: ReceiptNenk
                         )}
                         {hasShippingFee && (
                             <tr>
-                                <td style={tdStyle}>Potongan Ongkir Berkas Nenkin 80%</td>
+                                <td style={tdStyle}>Potongan Ongkos Kirim Berkas Nenkin 80% Ke Japan Pension Service</td>
                                 <td style={{ ...tdStyle, textAlign: 'right', color: '#DC2626' }}>
                                     - {formatIdr(data.shippingFeeIdr!)}
                                 </td>
@@ -257,6 +257,11 @@ export default function ReceiptNenkin({ data, density = 'compact' }: ReceiptNenk
 
                 <div style={{ textAlign: 'right', marginTop: '12px', fontSize: '10px', color: '#6B7280' }}>
                     Tanggal Cetak: {data.date}
+                </div>
+
+                <div style={styles.thankYouMessage}>
+                    Terimakasih sudah menggunakan jasa Exata Indonesia dalam pengurusan Nenkin kamu.<br />
+                    Share pengalaman terbaik kamu menggunakan exata ke Kohai dan teman teman kamu ya 😄
                 </div>
             </div>
         </div>
@@ -448,5 +453,14 @@ const styles: Record<string, React.CSSProperties> = {
         color: '#9CA3AF',
         textAlign: 'center',
         marginTop: '12px',  // Reduced from 16px
+    },
+    thankYouMessage: {
+        textAlign: 'center',
+        marginTop: '20px',
+        fontSize: '11px',
+        color: '#4B5563',
+        lineHeight: '1.5',
+        fontStyle: 'italic',
+        fontWeight: 500,
     },
 };
