@@ -133,14 +133,71 @@ async function processGenerationJob(
     let browser: Browser | null = null;
 
     try {
-        // Launch browser
+        // Launch browser with fallback paths for different environments
+        const chromiumPaths = [
+            process.env.PUPPETEER_EXECUTABLE_PATH,
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium',
+            '/usr/bin/google-chrome',
+            '/usr/bin/google-chrome-stable',
+        ].filter(Boolean) as string[];
+
         console.log('[Generator] Launching Puppeteer browser...');
-        browser = await puppeteer.launch({
-            headless: true,
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-        });
-        console.log('[Generator] Browser launched successfully');
+        console.log('[Generator] PUPPETEER_EXECUTABLE_PATH:', process.env.PUPPETEER_EXECUTABLE_PATH);
+        console.log('[Generator] Trying chromium paths:', chromiumPaths);
+
+        let launchError: Error | null = null;
+        for (const execPath of chromiumPaths) {
+            try {
+                console.log(`[Generator] Trying path: ${execPath}`);
+                browser = await puppeteer.launch({
+                    headless: true,
+                    executablePath: execPath,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--single-process',
+                        '--no-zygote',
+                    ],
+                });
+                console.log(`[Generator] Browser launched successfully with: ${execPath}`);
+                launchError = null;
+                break;
+            } catch (err) {
+                console.error(`[Generator] Failed with path ${execPath}:`, err);
+                launchError = err as Error;
+            }
+        }
+
+        // If all paths failed, try without executablePath (use bundled chromium if available)
+        if (!browser && launchError) {
+            console.log('[Generator] Trying with bundled Chromium...');
+            try {
+                browser = await puppeteer.launch({
+                    headless: true,
+                    args: [
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-gpu',
+                        '--single-process',
+                        '--no-zygote',
+                    ],
+                });
+                console.log('[Generator] Browser launched with bundled Chromium');
+            } catch (err) {
+                console.error('[Generator] Bundled Chromium also failed:', err);
+                throw launchError;
+            }
+        }
+
+        if (!browser) {
+            throw new Error('Failed to launch browser: no valid Chromium path found');
+        }
+
+        console.log('[Generator] Browser ready');
 
         // Process transactions with concurrency control
         const results = [];
