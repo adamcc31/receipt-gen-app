@@ -1,7 +1,8 @@
 # Nixpacks configuration for Railway
-# Ensures Puppeteer/Chromium dependencies are available
+# Ensures Puppeteer/Chromium dependencies and Node 20 are available
 
 [phases.setup]
+nixPkgs = ["nodejs_20", "npm-10_x", "openssl"]
 aptPkgs = [
   "chromium-browser",
   "fonts-liberation",
