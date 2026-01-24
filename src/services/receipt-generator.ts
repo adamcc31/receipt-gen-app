@@ -137,6 +137,7 @@ async function processGenerationJob(
         console.log('[Generator] Launching Puppeteer browser...');
         browser = await puppeteer.launch({
             headless: true,
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
         });
         console.log('[Generator] Browser launched successfully');
@@ -324,7 +325,7 @@ async function generateSingleReceipt(
         // Update transaction status
         const rawName = transaction.batch?.filename || 'MANUAL_UPLOAD';
         const receiptNumber = generateReceiptNumber(rawName, transaction.rowIndex);
-        
+
         await prisma.transaction.update({
             where: { id: transactionId },
             data: {
