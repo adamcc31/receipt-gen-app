@@ -1,11 +1,14 @@
 # Nixpacks configuration for Railway
-# Ensures Puppeteer/Chromium dependencies and Node 20 are available
+# Uses Chromium from Nix packages for Puppeteer support
 
 [phases.setup]
-nixPkgs = ["nodejs_20", "npm-10_x", "openssl"]
+# Chromium is included in nixPkgs - this installs the actual binary, not a snap wrapper
+nixPkgs = ["nodejs_20", "npm-10_x", "openssl", "chromium"]
+
+# Font and library dependencies for Chromium
 aptPkgs = [
-  "chromium-browser",
   "fonts-liberation",
+  "fonts-noto-cjk",
   "libasound2t64",
   "libatk-bridge2.0-0",
   "libatk1.0-0",
@@ -35,4 +38,5 @@ cmd = "npm run start"
 
 [variables]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
-PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium-browser"
+# Nix installs chromium to a path accessible via 'which chromium'
+# We'll detect the path at runtime instead of hardcoding
