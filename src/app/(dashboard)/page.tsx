@@ -29,6 +29,10 @@ import Link from 'next/link';
 import { StatCardSkeleton } from '@/components/ui/Skeletons';
 import { uiFlags } from '@/lib/uiFlags';
 import { AnalyticsSection } from '@/components/dashboard/AnalyticsSection';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 type DashboardStats = {
     totalBatches: number;
@@ -37,10 +41,20 @@ type DashboardStats = {
     pendingTransactions: number;
 };
 
+type Batch = {
+    id: string;
+    filename: string;
+    uploadDate: string;
+    status: string;
+    totalRecords: number;
+};
+
 export default function DashboardPage() {
     const [uiLoading, setUiLoading] = useState(true);
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [statsLoading, setStatsLoading] = useState(true);
+    const [recentBatches, setRecentBatches] = useState<Batch[]>([]);
+    const [batchesLoading, setBatchesLoading] = useState(true);
 
     useEffect(() => {
         const t = window.setTimeout(() => setUiLoading(false), 350);
@@ -62,37 +76,70 @@ export default function DashboardPage() {
         load();
     }, []);
 
+    useEffect(() => {
+        const loadBatches = async () => {
+            setBatchesLoading(true);
+            try {
+                const res = await fetch('/api/batches');
+                if (!res.ok) return;
+                const data = await res.json();
+                // Take top 2 recent batches
+                setRecentBatches(data.slice(0, 2));
+            } catch (error) {
+                console.error('Failed to load batches', error);
+            } finally {
+                setBatchesLoading(false);
+            }
+        };
+        loadBatches();
+    }, []);
+
     const statCards = useMemo(() => {
-        const statConfig = [
+        type StatItem = {
+            title: string;
+            value: number;
+            icon: React.ElementType;
+            color: string;
+            change: string;
+            href: string;
+            highlight?: boolean;
+        };
+
+        const statConfig: StatItem[] = [
             {
                 title: 'Total Batches',
                 value: stats?.totalBatches ?? 0,
                 icon: IconFileSpreadsheet,
-                color: 'blue',
+                color: 'pink',
+                change: '',
                 href: '/batches',
             },
             {
                 title: 'Total Transactions',
                 value: stats?.totalTransactions ?? 0,
                 icon: IconReceipt,
-                color: 'indigo',
+                color: 'green',
+                change: '',
                 href: '/batches',
             },
             {
-                title: 'Generated',
+                title: 'Generated Receipts',
                 value: stats?.generatedTransactions ?? 0,
                 icon: IconCheck,
                 color: 'green',
+                change: '',
                 href: '/batches',
+                highlight: true,
             },
             {
-                title: 'Pending',
+                title: 'Pending Review',
                 value: stats?.pendingTransactions ?? 0,
                 icon: IconClock,
                 color: 'orange',
+                change: '',
                 href: '/batches',
             },
-        ] as const;
+        ];
 
         return statConfig.map((stat) => (
             <Grid.Col key={stat.title} span={{ base: 12, xs: 6, md: 3 }}>
@@ -105,17 +152,44 @@ export default function DashboardPage() {
                         className="rms-clickableCard"
                         style={{ display: 'block', width: '100%' }}
                     >
-                        <Card padding="lg" radius="md" withBorder>
-                            <Group justify="space-between" mb="xs">
-                                <Text size="sm" c="dimmed" fw={500}>
-                                    {stat.title}
-                                </Text>
-                                <ThemeIcon color={stat.color} variant="light" size="lg" radius="md">
+                        <Card
+                            padding="lg"
+                            radius="lg"
+                            style={{
+                                backgroundColor: stat.highlight ? 'var(--color-primary)' : 'var(--color-surface)',
+                                color: stat.highlight ? 'white' : undefined,
+                                border: 'none'
+                            }}
+                        >
+                            <Group justify="space-between" mb="sm" align="flex-start">
+                                <ThemeIcon
+                                    color={stat.highlight ? 'white' : stat.color}
+                                    variant={stat.highlight ? 'transparent' : 'light'}
+                                    size="lg"
+                                    radius="md"
+                                    style={{
+                                        color: stat.highlight ? 'white' : undefined,
+                                        backgroundColor: stat.highlight ? 'rgba(255,255,255,0.2)' : undefined
+                                    }}
+                                >
                                     <stat.icon size={20} />
                                 </ThemeIcon>
+                                {stat.change && (
+                                    <Badge
+                                        variant={stat.highlight ? 'filled' : 'light'}
+                                        color={stat.change.includes('+') ? 'green' : 'red'}
+                                        bg={stat.highlight ? 'rgba(255,255,255,0.2)' : undefined}
+                                        c={stat.highlight ? 'white' : undefined}
+                                    >
+                                        {stat.change}
+                                    </Badge>
+                                )}
                             </Group>
-                            <Text fw={700} size="xl">
+                            <Text fw={700} size="xl" style={{ fontSize: '2rem', lineHeight: 1 }} mb={4} c={stat.highlight ? 'white' : 'var(--color-text-heading)'}>
                                 {stat.value.toLocaleString()}
+                            </Text>
+                            <Text size="sm" c={stat.highlight ? 'gray.2' : 'dimmed'} fw={500}>
+                                {stat.title}
                             </Text>
                         </Card>
                     </UnstyledButton>
@@ -127,36 +201,59 @@ export default function DashboardPage() {
     return (
         <Container size="xl" py="xl">
             {/* Page Header */}
-            <Stack gap="xs" mb="xl">
-                <Title order={2}>Dashboard</Title>
-                <Text c="dimmed">Welcome to Receipt Management System</Text>
-            </Stack>
+            <Group justify="space-between" align="center" mb="xl">
+                <div>
+                    <Title order={2} c="var(--color-text-heading)">Hello, Creative!</Title>
+                    <Text c="dimmed" size="sm">Here is your daily overview</Text>
+                </div>
+                <Group>
+                    <Button variant="default" radius="md">General</Button>
+                    <Button variant="subtle" radius="md" color="gray">Workspace</Button>
+                </Group>
+            </Group>
 
             {/* Stats Grid */}
-            <Grid mb="xl">
+            <Grid mb={30}>
                 {statCards}
             </Grid>
 
             {/* Analytics Section */}
-            <Box mb="xl">
-                <AnalyticsSection />
+            <Box mb={30}>
+                <AnalyticsSection stats={stats} />
             </Box>
 
             {/* Quick Actions */}
             <Grid>
                 <Grid.Col span={{ base: 12, md: 6 }}>
-                    <Card padding="xl" radius="md" withBorder>
-                        <Group justify="space-between" mb="md">
+                    <Card padding="xl" radius="lg" className="rms-clickableCard" style={{ backgroundColor: 'var(--color-surface)', border: '1px solid transparent' }}>
+                        <Group justify="space-between" mb="lg">
                             <div>
-                                <Text fw={600} size="lg" mb={4}>Quick Upload</Text>
+                                <Text fw={700} size="lg" mb={4} c="var(--color-text-heading)">Quick Upload</Text>
                                 <Text size="sm" c="dimmed">
-                                    Upload Excel file to create new batch
+                                    Upload Receipt files here
                                 </Text>
                             </div>
-                            <ThemeIcon size="xl" radius="md" variant="gradient" gradient={{ from: 'blue', to: 'cyan' }}>
+                            <ThemeIcon size={48} radius="xl" color="pink" variant="light" style={{ backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
                                 <IconUpload size={24} />
                             </ThemeIcon>
                         </Group>
+
+                        <Box
+                            p="xl"
+                            style={{
+                                border: '2px dashed var(--color-primary-light)',
+                                borderRadius: 'var(--mantine-radius-md)',
+                                textAlign: 'center'
+                            }}
+                            mb="md"
+                        >
+                            <ThemeIcon variant="light" color="pink" radius="50%" size="xl" mb="sm">
+                                <IconUpload size={24} />
+                            </ThemeIcon>
+                            <Text size="sm" fw={500} c="var(--color-text-heading)">Drag & drop receipt files here</Text>
+                            <Text size="xs" c="dimmed">Support PDF, JPG, PNG</Text>
+                        </Box>
+
                         {uiFlags.skeletons && uiLoading ? (
                             <Skeleton height={36} radius="md" />
                         ) : (
@@ -164,28 +261,81 @@ export default function DashboardPage() {
                                 component={Link}
                                 href="/upload"
                                 fullWidth
-                                variant="light"
-                                rightSection={<IconArrowRight size={16} />}
+                                variant="outline"
+                                color="brand"
+                                radius="md"
                             >
-                                Go to Upload
+                                Browse Files
                             </Button>
                         )}
                     </Card>
                 </Grid.Col>
 
                 <Grid.Col span={{ base: 12, md: 6 }}>
-                    <Card padding="xl" radius="md" withBorder>
-                        <Group justify="space-between" mb="md">
+                    <Card padding="xl" radius="lg" className="rms-clickableCard" style={{ backgroundColor: 'var(--color-surface)' }}>
+                        <Group justify="space-between" mb="lg">
                             <div>
-                                <Text fw={600} size="lg" mb={4}>Recent Batches</Text>
+                                <Text fw={700} size="lg" mb={4} c="var(--color-text-heading)">Recent Batches</Text>
                                 <Text size="sm" c="dimmed">
-                                    View and manage your batches
+                                    History
                                 </Text>
                             </div>
-                            <ThemeIcon size="xl" radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'violet' }}>
+                            <ThemeIcon size={48} radius="xl" color="pink" variant="light" style={{ backgroundColor: 'var(--color-primary-light)', color: 'var(--color-primary)' }}>
                                 <IconFileSpreadsheet size={24} />
                             </ThemeIcon>
                         </Group>
+
+                        {/* Recent Batches List */}
+                        <Stack gap="md" mb="md">
+                            {batchesLoading ? (
+                                <>
+                                    <Group justify="space-between" wrap="nowrap">
+                                        <Group gap="sm">
+                                            <Skeleton height={40} width={40} radius="xl" />
+                                            <div>
+                                                <Skeleton height={16} width={120} mb={4} />
+                                                <Skeleton height={12} width={80} />
+                                            </div>
+                                        </Group>
+                                    </Group>
+                                    <Group justify="space-between" wrap="nowrap">
+                                        <Group gap="sm">
+                                            <Skeleton height={40} width={40} radius="xl" />
+                                            <div>
+                                                <Skeleton height={16} width={120} mb={4} />
+                                                <Skeleton height={12} width={80} />
+                                            </div>
+                                        </Group>
+                                    </Group>
+                                </>
+                            ) : recentBatches.length > 0 ? (
+                                recentBatches.map((batch) => (
+                                    <Group key={batch.id} justify="space-between" wrap="nowrap">
+                                        <Group gap="sm">
+                                            <ThemeIcon radius="xl" size="lg" color="gray" variant="light">
+                                                <IconFileSpreadsheet size={20} />
+                                            </ThemeIcon>
+                                            <div>
+                                                <Text size="sm" fw={600} c="var(--color-text-heading)" lineClamp={1}>
+                                                    {batch.filename}
+                                                </Text>
+                                                <Text size="xs" c="dimmed">
+                                                    Uploaded • {batch.totalRecords} Items
+                                                </Text>
+                                            </div>
+                                        </Group>
+                                        <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                                            {dayjs(batch.uploadDate).fromNow()}
+                                        </Text>
+                                    </Group>
+                                ))
+                            ) : (
+                                <Text size="sm" c="dimmed" ta="center" py="md">
+                                    No batches found
+                                </Text>
+                            )}
+                        </Stack>
+
                         {uiFlags.skeletons && uiLoading ? (
                             <Skeleton height={36} radius="md" />
                         ) : (
@@ -194,24 +344,16 @@ export default function DashboardPage() {
                                 href="/batches"
                                 fullWidth
                                 variant="light"
+                                color="brand"
+                                radius="md"
                                 rightSection={<IconArrowRight size={16} />}
                             >
-                                View Batches
+                                View All Batches
                             </Button>
                         )}
                     </Card>
                 </Grid.Col>
             </Grid>
-
-            {/* Status Info */}
-            <Card mt="xl" padding="lg" radius="md" withBorder bg="blue.0">
-                <Group>
-                    <Badge size="lg" variant="filled">System Status</Badge>
-                    <Text size="sm">
-                        All systems operational. Database connected.
-                    </Text>
-                </Group>
-            </Card>
         </Container>
     );
 }

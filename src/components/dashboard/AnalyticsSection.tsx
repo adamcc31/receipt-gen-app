@@ -8,19 +8,9 @@ import {
     ThemeIcon,
     Stack,
     Skeleton,
-    SegmentedControl,
     SimpleGrid,
     Box,
-    Badge,
 } from '@mantine/core';
-import {
-    IconChartBar,
-    IconReceipt,
-    IconCash,
-    IconTrendingUp,
-    IconTrendingDown,
-    IconMinus,
-} from '@tabler/icons-react';
 import {
     BarChart,
     Bar,
@@ -29,9 +19,9 @@ import {
     CartesianGrid,
     Tooltip,
     ResponsiveContainer,
-    Line,
-    ComposedChart,
-    Legend,
+    PieChart,
+    Pie,
+    Cell,
 } from 'recharts';
 
 type MonthlyDataPoint = {
@@ -55,13 +45,10 @@ type AnalyticsData = {
 
 function formatCurrency(value: number): string {
     if (value >= 1_000_000_000) {
-        return `Rp ${(value / 1_000_000_000).toFixed(1)}B`;
+        return `Rp ${(value / 1_000_000_000).toFixed(1)}M`;
     }
     if (value >= 1_000_000) {
-        return `Rp ${(value / 1_000_000).toFixed(1)}M`;
-    }
-    if (value >= 1_000) {
-        return `Rp ${(value / 1_000).toFixed(0)}K`;
+        return `Rp ${(value / 1_000_000).toFixed(1)}JT`;
     }
     return `Rp ${value.toLocaleString()}`;
 }
@@ -70,95 +57,32 @@ function formatNumber(value: number): string {
     return value.toLocaleString('id-ID');
 }
 
-type KpiCardProps = {
-    title: string;
-    value: string;
-    subtitle?: string;
-    icon: React.ElementType;
-    color: string;
-    trend?: number | null;
+type DashboardStats = {
+    totalBatches: number;
+    totalTransactions: number;
+    generatedTransactions: number;
+    pendingTransactions: number;
 };
 
-function KpiCard({ title, value, subtitle, icon: Icon, color, trend }: KpiCardProps) {
-    return (
-        <Card padding="md" radius="md" withBorder>
-            <Group justify="space-between" mb="xs">
-                <Text size="sm" c="dimmed" fw={500}>
-                    {title}
-                </Text>
-                <ThemeIcon color={color} variant="light" size="md" radius="md">
-                    <Icon size={16} />
-                </ThemeIcon>
-            </Group>
-            <Text fw={700} size="xl" mb={2}>
-                {value}
-            </Text>
-            {subtitle && (
-                <Text size="xs" c="dimmed">
-                    {subtitle}
-                </Text>
-            )}
-            {trend !== undefined && trend !== null && (
-                <Group gap={4} mt="xs">
-                    {trend > 0 ? (
-                        <IconTrendingUp size={14} color="var(--mantine-color-green-6)" />
-                    ) : trend < 0 ? (
-                        <IconTrendingDown size={14} color="var(--mantine-color-red-6)" />
-                    ) : (
-                        <IconMinus size={14} color="var(--mantine-color-gray-6)" />
-                    )}
-                    <Text size="xs" c={trend > 0 ? 'green' : trend < 0 ? 'red' : 'gray'} fw={500}>
-                        {trend > 0 ? '+' : ''}
-                        {trend}% dari bulan lalu
-                    </Text>
-                </Group>
-            )}
-        </Card>
-    );
-}
-
-// Custom tooltip for the chart
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; dataKey: string }>; label?: string }) {
-    if (active && payload && payload.length) {
-        const receiptCount = payload.find(p => p.dataKey === 'receiptCount')?.value ?? 0;
-        const avgAmount = payload.find(p => p.dataKey === 'avgAmount')?.value ?? 0;
-
-        return (
-            <Card padding="sm" radius="md" shadow="md" withBorder>
-                <Text fw={600} size="sm" mb="xs">
-                    {label}
-                </Text>
-                <Stack gap={4}>
-                    <Group gap="xs">
-                        <Box w={12} h={12} bg="indigo.5" style={{ borderRadius: 2 }} />
-                        <Text size="xs" c="dimmed">
-                            Receipts:
-                        </Text>
-                        <Text size="xs" fw={600}>
-                            {formatNumber(receiptCount)}
-                        </Text>
-                    </Group>
-                    <Group gap="xs">
-                        <Box w={12} h={12} bg="orange.5" style={{ borderRadius: 2 }} />
-                        <Text size="xs" c="dimmed">
-                            Rata-rata:
-                        </Text>
-                        <Text size="xs" fw={600}>
-                            {formatCurrency(avgAmount)}
-                        </Text>
-                    </Group>
-                </Stack>
-            </Card>
-        );
-    }
-    return null;
-}
-
-export function AnalyticsSection() {
+export function AnalyticsSection({ stats }: { stats: DashboardStats | null }) {
     const [data, setData] = useState<AnalyticsData | null>(null);
     const [loading, setLoading] = useState(true);
     const [timeRange, setTimeRange] = useState<'6' | '12'>('12');
     const [error, setError] = useState<string | null>(null);
+
+    // Calculate real status data
+    const total = stats?.totalTransactions || 0;
+    const generated = stats?.generatedTransactions || 0;
+    const pending = stats?.pendingTransactions || 0;
+
+    // Safety check div by zero
+    const generatedPercent = total > 0 ? Math.round((generated / total) * 100) : 0;
+    const pendingPercent = total > 0 ? Math.round((pending / total) * 100) : 0;
+
+    const complianceData = [
+        { name: 'Generated', value: generatedPercent || 100, color: 'var(--color-primary)' }, // fallback to 100 visual if 0 to avoid empty chart
+        { name: 'Pending', value: pendingPercent, color: '#fce7f3' },
+    ];
 
     useEffect(() => {
         const fetchData = async () => {
@@ -182,163 +106,118 @@ export function AnalyticsSection() {
     const hasData = data && data.monthlyData.some(d => d.receiptCount > 0);
 
     return (
-        <Card padding="xl" radius="md" withBorder>
-            {/* Header */}
-            <Group justify="space-between" mb="lg">
-                <Group gap="sm">
-                    <ThemeIcon size="lg" radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
-                        <IconChartBar size={20} />
-                    </ThemeIcon>
+        <SimpleGrid cols={{ base: 1, md: 3 }} spacing="lg">
+            {/* Trends Chart (2/3 width) */}
+            <Card padding="xl" radius="lg" className="rms-clickableCard" style={{ gridColumn: 'span 2', backgroundColor: 'var(--color-surface)', border: 'none' }}>
+                <Group justify="space-between" mb="lg">
                     <div>
-                        <Text fw={600}>Analytics</Text>
-                        <Text size="sm" c="dimmed">
-                            Receipt generation trends
-                        </Text>
+                        <Text fw={700} size="lg" c="var(--color-text-heading)">Receipt Generation Trends</Text>
+                        <Text size="sm" c="dimmed">Monthly overview of processed documents</Text>
                     </div>
+                    <Group gap="xs">
+                        <Group gap={4}>
+                            <Box w={8} h={8} bg="brand.5" style={{ borderRadius: '50%' }} />
+                            <Text size="xs" c="dimmed">Approved</Text>
+                        </Group>
+                        <Group gap={4}>
+                            <Box w={8} h={8} bg="pink.1" style={{ borderRadius: '50%' }} />
+                            <Text size="xs" c="dimmed">Pending</Text>
+                        </Group>
+                    </Group>
                 </Group>
-                <SegmentedControl
-                    value={timeRange}
-                    onChange={(value) => setTimeRange(value as '6' | '12')}
-                    data={[
-                        { label: '6 Bulan', value: '6' },
-                        { label: '12 Bulan', value: '12' },
-                    ]}
-                    size="xs"
-                />
-            </Group>
 
-            {/* Loading State */}
-            {loading && (
-                <Stack gap="md">
-                    <Skeleton height={200} radius="md" />
-                    <SimpleGrid cols={{ base: 2, md: 4 }}>
-                        <Skeleton height={80} radius="md" />
-                        <Skeleton height={80} radius="md" />
-                        <Skeleton height={80} radius="md" />
-                        <Skeleton height={80} radius="md" />
-                    </SimpleGrid>
-                </Stack>
-            )}
-
-            {/* Error State */}
-            {error && !loading && (
-                <Card padding="xl" radius="md" bg="red.0" ta="center">
-                    <Text c="red" fw={500}>
-                        {error}
-                    </Text>
-                </Card>
-            )}
-
-            {/* Empty State */}
-            {!loading && !error && !hasData && (
-                <Card padding="xl" radius="md" bg="gray.0" ta="center">
-                    <Stack align="center" gap="sm">
-                        <ThemeIcon size={48} radius="xl" variant="light" color="gray">
-                            <IconChartBar size={24} />
-                        </ThemeIcon>
-                        <Text c="dimmed" fw={500}>
-                            Belum ada data receipt
-                        </Text>
-                        <Text size="sm" c="dimmed">
-                            Data analytics akan muncul setelah ada receipt yang di-generate
-                        </Text>
-                    </Stack>
-                </Card>
-            )}
-
-            {/* Chart */}
-            {!loading && !error && hasData && data && (
-                <Stack gap="lg">
-                    {/* Chart Container */}
-                    <Box h={280}>
+                {loading ? (
+                    <Skeleton height={280} radius="md" />
+                ) : hasData && data ? (
+                    <Box h={300}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart
-                                data={data.monthlyData}
-                                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                            >
-                                <CartesianGrid strokeDasharray="3 3" stroke="var(--mantine-color-gray-2)" />
+                            <BarChart data={data.monthlyData} barGap={0} barSize={12}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                                 <XAxis
                                     dataKey="label"
-                                    tick={{ fontSize: 11, fill: 'var(--mantine-color-gray-6)' }}
+                                    axisLine={false}
                                     tickLine={false}
-                                    axisLine={{ stroke: 'var(--mantine-color-gray-3)' }}
+                                    tick={{ fill: '#94a3b8', fontSize: 12 }}
+                                    dy={10}
                                 />
                                 <YAxis
-                                    yAxisId="left"
-                                    tick={{ fontSize: 11, fill: 'var(--mantine-color-gray-6)' }}
-                                    tickLine={false}
                                     axisLine={false}
-                                    tickFormatter={(value) => value.toString()}
-                                />
-                                <YAxis
-                                    yAxisId="right"
-                                    orientation="right"
-                                    tick={{ fontSize: 11, fill: 'var(--mantine-color-gray-6)' }}
                                     tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(value) => formatCurrency(value)}
+                                    tick={{ fill: '#94a3b8', fontSize: 12 }}
                                 />
-                                <Tooltip content={<CustomTooltip />} />
-                                <Legend
-                                    wrapperStyle={{ fontSize: 12 }}
-                                    formatter={(value) =>
-                                        value === 'receiptCount' ? 'Jumlah Receipt' : 'Rata-rata Amount'
-                                    }
+                                <Tooltip
+                                    cursor={{ fill: '#f8fafc' }}
+                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                                 />
                                 <Bar
-                                    yAxisId="left"
                                     dataKey="receiptCount"
-                                    fill="var(--mantine-color-indigo-5)"
+                                    fill="var(--color-primary)"
                                     radius={[4, 4, 0, 0]}
-                                    maxBarSize={40}
                                 />
-                                <Line
-                                    yAxisId="right"
-                                    type="monotone"
-                                    dataKey="avgAmount"
-                                    stroke="var(--mantine-color-orange-5)"
-                                    strokeWidth={2}
-                                    dot={{ fill: 'var(--mantine-color-orange-5)', strokeWidth: 0, r: 4 }}
-                                    activeDot={{ r: 6 }}
-                                />
-                            </ComposedChart>
+                            </BarChart>
                         </ResponsiveContainer>
                     </Box>
+                ) : (
+                    <Stack align="center" justify="center" h={300} bg="gray.0" style={{ borderRadius: '12px' }}>
+                        <Text c="dimmed">No data available</Text>
+                    </Stack>
+                )}
+            </Card>
 
-                    {/* KPI Cards */}
-                    <SimpleGrid cols={{ base: 2, md: 4 }}>
-                        <KpiCard
-                            title="Total Receipts"
-                            value={formatNumber(data.summary.totalReceipts)}
-                            subtitle={`${timeRange} bulan terakhir`}
-                            icon={IconReceipt}
-                            color="indigo"
-                            trend={data.summary.growthPercent}
-                        />
-                        <KpiCard
-                            title="Total Amount"
-                            value={formatCurrency(data.summary.totalAmount)}
-                            subtitle="Nominal keseluruhan"
-                            icon={IconCash}
-                            color="green"
-                        />
-                        <KpiCard
-                            title="Rata-rata / Receipt"
-                            value={formatCurrency(data.summary.avgPerReceipt)}
-                            subtitle="Per transaksi"
-                            icon={IconTrendingUp}
-                            color="orange"
-                        />
-                        <KpiCard
-                            title="Rata-rata / Bulan"
-                            value={formatNumber(data.summary.avgPerMonth)}
-                            subtitle="Receipt per bulan"
-                            icon={IconChartBar}
-                            color="cyan"
-                        />
-                    </SimpleGrid>
+            {/* Generate Status Chart (1/3 width) */}
+            <Card padding="xl" radius="lg" className="rms-clickableCard" style={{ backgroundColor: 'var(--color-surface)', border: 'none' }}>
+                <Text fw={700} size="lg" c="var(--color-text-heading)" mb="lg">Generate Status</Text>
+
+                <Box h={200} pos="relative">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Pie
+                                data={complianceData}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={60}
+                                outerRadius={80}
+                                paddingAngle={5}
+                                dataKey="value"
+                                startAngle={90}
+                                endAngle={-270}
+                            >
+                                {complianceData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                                ))}
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                    {/* Centered Text */}
+                    <Stack gap={0} align="center" justify="center" pos="absolute" top={0} left={0} right={0} bottom={0} style={{ pointerEvents: 'none' }}>
+                        <Text fw={800} size="xl" fz={28}>{total > 0 ? generatedPercent : 0}%</Text>
+                        <Text size="xs" c="dimmed" tt="uppercase" fw={600}>Generated</Text>
+                    </Stack>
+                </Box>
+
+                <Stack mt="xl" gap="sm">
+                    <Card padding="sm" radius="md" withBorder style={{ borderColor: '#f1f5f9' }}>
+                        <Group justify="space-between">
+                            <Group gap="xs">
+                                <Box w={4} h={16} bg="brand.5" style={{ borderRadius: 4 }} />
+                                <Text size="sm" fw={500}>Generated</Text>
+                            </Group>
+                            <Text size="sm" fw={700}>{formatNumber(generated)}</Text>
+                            <Text size="sm" fw={700} c="brand">{generatedPercent}%</Text>
+                        </Group>
+                    </Card>
+                    <Card padding="sm" radius="md" withBorder style={{ borderColor: '#f1f5f9' }}>
+                        <Group justify="space-between">
+                            <Group gap="xs">
+                                <Box w={4} h={16} bg="pink.2" style={{ borderRadius: 4 }} />
+                                <Text size="sm" fw={500}>Pending</Text>
+                            </Group>
+                            <Text size="sm" fw={700}>{formatNumber(pending)}</Text>
+                            <Text size="sm" fw={700} c="dimmed">{pendingPercent}%</Text>
+                        </Group>
+                    </Card>
                 </Stack>
-            )}
-        </Card>
+            </Card>
+        </SimpleGrid>
     );
 }

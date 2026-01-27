@@ -37,7 +37,7 @@ export default function LoginClient() {
             <Container size="xs" py="xl" w="100%">
                 <Stack gap="lg">
                     <Group gap="sm" justify="center">
-                        <ThemeIcon size="xl" radius="md" variant="gradient" gradient={{ from: 'indigo', to: 'cyan' }}>
+                        <ThemeIcon size="xl" radius="md" variant="gradient" gradient={{ from: 'pink', to: 'pink' }}>
                             <IconReceipt size={22} />
                         </ThemeIcon>
                         <div>

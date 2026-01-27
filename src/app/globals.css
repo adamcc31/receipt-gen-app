@@ -2,6 +2,32 @@
 
 :root {
   --font-inter: 'Inter', sans-serif;
+
+  /* NEW Design System Colors */
+  --color-primary: #ec4899;
+  --color-primary-light: #fdf2f8;
+  /* Very light pink for backgrounds */
+  --color-primary-dark: #db2777;
+  /* Darker pink for hover */
+
+  --color-sidebar-bg: #f8fafc;
+  /* Light Gray */
+  --color-sidebar-text: #64748b;
+  /* Slate 500 for inactive text (darker than before) */
+  --color-sidebar-active-bg: #fdf2f8;
+  /* matching primary-light */
+
+  --color-surface: #ffffff;
+  /* Card/Widget background */
+  --color-background: #f1f5f9;
+  /* Page background - slightly darker than sidebar to differentiate */
+
+  --color-text-heading: #1e293b;
+  /* Dark slate for headings */
+  --color-text-body: #475569;
+  /* Medium gray for body */
+  --color-text-muted: #94a3b8;
+  /* Light gray for labels */
 }
 
 * {
@@ -10,18 +36,19 @@
 
 body {
   font-family: var(--font-inter), sans-serif;
-  background-color: #f8fafc;
+  background-color: var(--color-background);
   margin: 0;
   padding: 0;
 }
 
 .rms-clickableCard {
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
 }
 
 .rms-clickableCard:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -8px rgba(236, 72, 153, 0.15), 0 6px 12px -4px rgba(0 0 0 / 0.06);
+  border-color: var(--color-primary) !important;
 }
 
 .rms-clickableCard:active {
@@ -29,7 +56,7 @@ body {
 }
 
 .rms-clickableCard:focus-visible {
-  outline: 2px solid var(--mantine-color-blue-5);
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
   border-radius: 12px;
 }

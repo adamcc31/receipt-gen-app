@@ -13,23 +13,41 @@ const inter = Inter({
 });
 
 const theme = createTheme({
-  primaryColor: 'blue',
-  fontFamily: 'Inter, sans-serif',
-  defaultRadius: 'md',
+  primaryColor: 'brand',
+  fontFamily: 'var(--font-inter), sans-serif',
+  defaultRadius: 'lg',
   colors: {
     brand: [
-      '#EEF2FF',
-      '#E0E7FF',
-      '#C7D2FE',
-      '#A5B4FC',
-      '#818CF8',
-      '#6366F1',
-      '#4F46E5',
-      '#4338CA',
-      '#3730A3',
-      '#312E81',
+      '#fdf2f8', // 0
+      '#fce7f3', // 1
+      '#fbcfe8', // 2
+      '#f9a8d4', // 3
+      '#f472b6', // 4
+      '#ec4899', // 5 (Primary)
+      '#db2777', // 6
+      '#be185d', // 7
+      '#9d174d', // 8
+      '#831843', // 9
     ],
   },
+  components: {
+    Button: {
+      defaultProps: {
+        fw: 600,
+      },
+    },
+    Card: {
+      defaultProps: {
+        shadow: 'sm',
+        withBorder: false, // Cleaner look as per design
+      },
+      styles: {
+        root: {
+          backgroundColor: 'var(--color-surface)',
+        }
+      }
+    }
+  }
 });
 
 export const metadata: Metadata = {
