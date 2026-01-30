@@ -243,8 +243,7 @@ async function processGenerationJob(
                     txId,
                     baseUrl,
                     outputDir,
-                    exportPreferences,
-                    i + 1  // Sequential index (1-based)
+                    exportPreferences
                 );
                 results.push(result);
 
@@ -293,8 +292,7 @@ async function generateSingleReceipt(
     transactionId: string,
     baseUrl: string,
     outputDir: string,
-    exportPreferences: ExportPreferences,
-    sequentialIndex: number  // 1-based index for file naming
+    exportPreferences: ExportPreferences
 ): Promise<GeneratedFile> {
     const page = await browser.newPage();
 
@@ -315,8 +313,8 @@ async function generateSingleReceipt(
         // Transform date from YYYY-MM-DD to DD-MM-YYYY
         const [year, month, day] = currentDate.split('-');
         const transformedDate = `${day}-${month}-${year}`;
-        // Sequential number as 2-digit padded string
-        const seqNum = String(sequentialIndex).padStart(2, '0');
+        // Sequential number from original Excel row index (like receipt number)
+        const seqNum = String(transaction.rowIndex ?? 1).padStart(2, '0');
         const typeLabel = transaction.type;
 
         // Determine the route based on type
