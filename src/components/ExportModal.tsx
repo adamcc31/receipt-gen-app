@@ -130,7 +130,7 @@ export default function ExportModal({ opened, onClose, onConfirm, loading }: Exp
                                             <Text fw={500}>Flat Bulk (Default)</Text>
                                         </Group>
                                         <Text size="xs" c="dimmed" ml={26}>
-                                            All files in ZIP root: Date_ClientName_Type.ext
+                                            All files in ZIP root: 01_DD-MM-YYYY_ClientName_Type.ext
                                         </Text>
                                     </div>
                                 }

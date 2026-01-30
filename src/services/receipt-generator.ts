@@ -243,7 +243,8 @@ async function processGenerationJob(
                     txId,
                     baseUrl,
                     outputDir,
-                    exportPreferences
+                    exportPreferences,
+                    i + 1  // Sequential index (1-based)
                 );
                 results.push(result);
 
@@ -292,7 +293,8 @@ async function generateSingleReceipt(
     transactionId: string,
     baseUrl: string,
     outputDir: string,
-    exportPreferences: ExportPreferences
+    exportPreferences: ExportPreferences,
+    sequentialIndex: number  // 1-based index for file naming
 ): Promise<GeneratedFile> {
     const page = await browser.newPage();
 
@@ -310,6 +312,11 @@ async function generateSingleReceipt(
         // Sanitize client name for filename/folder
         const safeClientName = sanitizeFilename(transaction.clientName);
         const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        // Transform date from YYYY-MM-DD to DD-MM-YYYY
+        const [year, month, day] = currentDate.split('-');
+        const transformedDate = `${day}-${month}-${year}`;
+        // Sequential number as 2-digit padded string
+        const seqNum = String(sequentialIndex).padStart(2, '0');
         const typeLabel = transaction.type;
 
         // Determine the route based on type
@@ -365,18 +372,18 @@ async function generateSingleReceipt(
 
         if (transaction.type === 'GENSEN' && gensenYearSafe) {
             if (folderStructure === 'GROUP_BY_FOLDER') {
-                // Format: Date_GENSEN_Year.ext
-                baseFilename = `${currentDate}_GENSEN_${gensenYearSafe}`;
+                // Format: SEQ_DD-MM-YYYY_GENSEN_Year.ext
+                baseFilename = `${seqNum}_${transformedDate}_GENSEN_${gensenYearSafe}`;
             } else {
-                // Format: Date_ClientName_GENSEN_Year.ext
-                baseFilename = `${currentDate}_${safeClientName}_GENSEN_${gensenYearSafe}`;
+                // Format: SEQ_DD-MM-YYYY_ClientName_GENSEN_Year.ext
+                baseFilename = `${seqNum}_${transformedDate}_${safeClientName}_GENSEN_${gensenYearSafe}`;
             }
         } else if (folderStructure === 'GROUP_BY_FOLDER') {
-            // Format: Date_Type.ext
-            baseFilename = `${currentDate}_${typeLabel}`;
+            // Format: SEQ_DD-MM-YYYY_Type.ext
+            baseFilename = `${seqNum}_${transformedDate}_${typeLabel}`;
         } else {
-            // Format: Date_ClientName_Type.ext
-            baseFilename = `${currentDate}_${safeClientName}_${typeLabel}`;
+            // Format: SEQ_DD-MM-YYYY_ClientName_Type.ext
+            baseFilename = `${seqNum}_${transformedDate}_${safeClientName}_${typeLabel}`;
         }
 
         // Generate PDF if requested
