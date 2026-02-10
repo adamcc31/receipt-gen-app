@@ -197,10 +197,10 @@ export function calculateGensen(input: GensenCalculationInput): CalculationResul
     const taxRepresentativeFeeYen = new Decimal(input.taxRepresentativeFeeYen ?? '0');
     const additionalCostAmount = new Decimal(input.additionalCostAmount ?? '0');
 
-    // Calculate admin fee amount (rounded down to whole Yen before deduction)
+    // Calculate admin fee amount (Excel-compatible: round half up to whole Yen)
     const adminFeeAmount = nominalYen
         .mul(adminFeePercentage)
-        .toDecimalPlaces(0, Decimal.ROUND_FLOOR);
+        .toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
 
     // Net amount = Nominal - AdminFee% - TaxRepresentativeFee - AdditionalCost
     const netAmountYen = nominalYen
