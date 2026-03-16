@@ -33,6 +33,13 @@ enum TransactionStatus {
   GENERATED
 }
 
+enum JobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
 // ============================================
 // MODELS
 // ============================================
@@ -97,4 +104,41 @@ model GlobalSetting {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("global_settings")
+}
+
+/// Track receipt generation jobs for async processing
+model GenerationJob {
+  id              String    @id @default(cuid())
+  status          JobStatus @default(PENDING)
+  progress        Int       @default(0)
+  total           Int
+  errorMessage    String?   @map("error_message")
+
+  // Export configuration
+  transactionIds  String[]  @map("transaction_ids")
+  formats         String[]
+  folderStructure String    @map("folder_structure")
+
+  // Result (Supabase Storage path)
+  resultUrl       String?   @map("result_url")
+
+  // Timestamps
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  completedAt     DateTime? @map("completed_at")
+
+  @@index([status])
+  @@map("generation_jobs")
+}
+
+/// Store users allowed to log into the application
+model WhitelistUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  role      String   @default("user") // admin, user
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("whitelist_users")
 }

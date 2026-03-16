@@ -13,7 +13,19 @@ export async function createSupabaseServerClient() {
                     return cookieStore.getAll();
                 },
                 setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
+                    try {
+                        console.log(`[SupabaseServerClient] setAll called with ${cookiesToSet.length} cookies.`);
+                        cookiesToSet.forEach(({ name, value, options }) => {
+                            console.log(`[SupabaseServerClient] Setting cookie: ${name} = ${value ? value.substring(0, 15) + '...' : 'EMPTY'} (maxAge: ${options.maxAge})`);
+                            cookieStore.set(name, value, {
+                                ...options,
+                                secure: process.env.NODE_ENV === 'production',
+                                sameSite: 'lax',
+                            });
+                        });
+                    } catch (error: any) {
+                        console.error('[SupabaseServerClient] Failed to setAll cookies (Expected during SSR):', error.message);
+                    }
                 },
             },
         }

@@ -1,46 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getJobStatus } from '@/services/receipt-generator';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { getZipResult } from '@/lib/storage';
 
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ jobId: string }> }
 ) {
-    const { jobId } = await params;
+    try {
+        const { jobId } = await params;
 
-    const status = getJobStatus(jobId);
+        const status = await getJobStatus(jobId);
 
-    if (!status) {
+        if (!status) {
+            return NextResponse.json(
+                { error: 'Job not found' },
+                { status: 404 }
+            );
+        }
+
+        if (status.status !== 'COMPLETED') {
+            return NextResponse.json(
+                { error: 'Job not completed yet' },
+                { status: 400 }
+            );
+        }
+
+        // Retrieve ZIP from Redis cache
+        const zipBuffer = await getZipResult(jobId);
+
+        if (!zipBuffer) {
+            return NextResponse.json(
+                { error: 'Download expired. Please regenerate the receipts.' },
+                { status: 410 } // 410 Gone
+            );
+        }
+
+        // Stream ZIP directly to client
+        return new NextResponse(new Uint8Array(zipBuffer), {
+            headers: {
+                'Content-Type': 'application/zip',
+                'Content-Disposition': `attachment; filename="receipts-${new Date().toISOString().split('T')[0]}.zip"`,
+                'Content-Length': String(zipBuffer.length),
+            },
+        });
+    } catch (error) {
+        console.error('[Download API] Error:', error);
         return NextResponse.json(
-            { error: 'Job not found' },
-            { status: 404 }
+            { error: 'Internal server error' },
+            { status: 500 }
         );
     }
-
-    if (status.status !== 'COMPLETED' || !status.outputPath) {
-        return NextResponse.json(
-            { error: 'Job not completed yet' },
-            { status: 400 }
-        );
-    }
-
-    // Read the ZIP file
-    const zipPath = join(process.cwd(), 'public', status.outputPath);
-
-    if (!existsSync(zipPath)) {
-        return NextResponse.json(
-            { error: 'File not found' },
-            { status: 404 }
-        );
-    }
-
-    const fileBuffer = readFileSync(zipPath);
-
-    return new NextResponse(fileBuffer, {
-        headers: {
-            'Content-Type': 'application/zip',
-            'Content-Disposition': `attachment; filename="receipts-${jobId}.zip"`,
-        },
-    });
 }

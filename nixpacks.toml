@@ -31,10 +31,10 @@ aptPkgs = [
 cmds = ["npm ci"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = ["npm run build", "cp -r public .next/standalone/public", "cp -r .next/static .next/standalone/.next/static"]
 
 [start]
-cmd = "npm run start"
+cmd = "node .next/standalone/server.js"
 
 [variables]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"

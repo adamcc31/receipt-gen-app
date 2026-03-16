@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateReceipts } from '@/services/receipt-generator';
+import { enqueueGenerationJob } from '@/services/receipt-generator';
 
 export async function POST(request: NextRequest) {
     try {
@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Validate export preferences
         if (!exportPreferences || !exportPreferences.formats || !Array.isArray(exportPreferences.formats)) {
             return NextResponse.json(
                 { error: 'Invalid export preferences' },
@@ -21,23 +20,18 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Get base URL from request
-        const protocol = request.headers.get('x-forwarded-proto') || 'http';
-        const host = request.headers.get('host') || 'localhost:3000';
-        const baseUrl = `${protocol}://${host}`;
-
-        // Start generation job with export preferences
-        const jobId = await generateReceipts({
+        // Enqueue job for async processing by the worker
+        const jobId = await enqueueGenerationJob({
             transactionIds,
-            baseUrl,
             exportPreferences,
         });
 
-        return NextResponse.json({ jobId });
+        // Return 202 Accepted with jobId for polling
+        return NextResponse.json({ jobId }, { status: 202 });
     } catch (error) {
-        console.error('Generate error:', error);
+        console.error('[Generate API] Error:', error);
         return NextResponse.json(
-            { error: 'Internal server error' },
+            { error: error instanceof Error ? error.message : 'Internal server error' },
             { status: 500 }
         );
     }

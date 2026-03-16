@@ -1,7 +1,6 @@
 import DashboardLayoutClient from './DashboardLayoutClient';
+import ClientAuthGuard from '@/components/auth/ClientAuthGuard';
 
-// Force dynamic rendering - prevents static prerendering during build
-// when Supabase env vars aren't available
 export const dynamic = 'force-dynamic';
 
 export default function DashboardLayout({
@@ -9,5 +8,12 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    return <DashboardLayoutClient>{children}</DashboardLayoutClient>;
+    // The authentication and whitelist checks have been moved 100% to Client Side 
+    // to permanently bypass Next.js 15+ turbopack cookie caching bugs.
+    
+    return (
+        <ClientAuthGuard>
+            <DashboardLayoutClient>{children}</DashboardLayoutClient>
+        </ClientAuthGuard>
+    );
 }

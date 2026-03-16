@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Alert, Button, Card, Center, Container, Group, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { IconAlertCircle, IconBrandGoogle, IconReceipt } from '@tabler/icons-react';
@@ -16,7 +16,19 @@ export default function LoginClient() {
         const error = params.get('error');
         if (error === 'unauthorized') return 'Email Anda tidak diizinkan untuk mengakses aplikasi ini.';
         if (error === 'oauth') return 'Login gagal. Silakan coba lagi.';
+        if (error === 'no_code') return 'Tidak ada access code yang ditemukan.';
         return null;
+    }, [params]);
+
+    useEffect(() => {
+        const checkExistingSession = async () => {
+            const supabase = createSupabaseBrowserClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user && !params.get('error')) {
+                window.location.href = '/';
+            }
+        };
+        checkExistingSession();
     }, [params]);
 
     const signInWithGoogle = async () => {

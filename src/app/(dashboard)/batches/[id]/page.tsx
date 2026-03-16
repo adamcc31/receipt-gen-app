@@ -188,7 +188,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 color: 'blue',
             });
 
-            // Start generation with export preferences
+            // Enqueue async job
             const response = await fetch('/api/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -199,47 +199,63 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             });
 
             if (!response.ok) {
-                throw new Error('Generation failed');
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || 'Failed to start generation');
             }
 
-            const data = await response.json();
+            const { jobId } = await response.json();
 
-            // Poll for progress
+            // Poll for progress (DB-backed status)
             const pollInterval = setInterval(async () => {
-                const statusResponse = await fetch(`/api/generate/${data.jobId}/status`);
-                const statusData = await statusResponse.json();
+                try {
+                    const statusResponse = await fetch(`/api/generate/${jobId}/status`);
+                    const statusData = await statusResponse.json();
 
-                setProgress(statusData.progress);
+                    setProgress(statusData.progress || 0);
 
-                if (statusData.status === 'COMPLETED') {
-                    clearInterval(pollInterval);
-                    setGenerating(false);
+                    if (statusData.status === 'COMPLETED') {
+                        clearInterval(pollInterval);
+                        setGenerating(false);
 
-                    showToast({
-                        title: 'Selesai',
-                        message: 'Mengunduh ZIP...',
-                        color: 'green',
-                    });
+                        showToast({
+                            title: 'Selesai',
+                            message: 'Mengunduh ZIP...',
+                            color: 'green',
+                        });
 
-                    // Download the ZIP
-                    window.location.href = `/api/generate/${data.jobId}/download`;
-                    closeProgressModal();
-                    fetchBatch(); // Refresh to show updated statuses
-                } else if (statusData.status === 'FAILED') {
-                    clearInterval(pollInterval);
-                    setGenerating(false);
-                    setError('Generation failed');
-                    showToast({
-                        title: 'Gagal',
-                        message: 'Gagal membuat kwitansi.',
-                        color: 'red',
-                    });
-                    closeProgressModal();
+                        // Download ZIP from Redis cache via fetch+blob
+                        const downloadRes = await fetch(`/api/generate/${jobId}/download`);
+                        if (downloadRes.ok) {
+                            const blob = await downloadRes.blob();
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = `receipts-${new Date().toISOString().split('T')[0]}.zip`;
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                        }
+                        closeProgressModal();
+                        fetchBatch(); // Refresh to show updated statuses
+                    } else if (statusData.status === 'FAILED') {
+                        clearInterval(pollInterval);
+                        setGenerating(false);
+                        setError(statusData.errorMessage || 'Generation failed');
+                        showToast({
+                            title: 'Gagal',
+                            message: statusData.errorMessage || 'Gagal membuat kwitansi.',
+                            color: 'red',
+                        });
+                        closeProgressModal();
+                    }
+                } catch {
+                    // Silently retry on network errors during polling
                 }
-            }, 1000);
-        } catch {
+            }, 2000);
+        } catch (err) {
             setGenerating(false);
-            setError('Failed to generate receipts');
+            setError(err instanceof Error ? err.message : 'Failed to generate receipts');
             showToast({
                 title: 'Gagal',
                 message: 'Gagal membuat kwitansi.',

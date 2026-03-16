@@ -5,16 +5,24 @@ export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ jobId: string }> }
 ) {
-    const { jobId } = await params;
+    try {
+        const { jobId } = await params;
 
-    const status = getJobStatus(jobId);
+        const status = await getJobStatus(jobId);
 
-    if (!status) {
+        if (!status) {
+            return NextResponse.json(
+                { error: 'Job not found' },
+                { status: 404 }
+            );
+        }
+
+        return NextResponse.json(status);
+    } catch (error) {
+        console.error('[Status API] Error:', error);
         return NextResponse.json(
-            { error: 'Job not found' },
-            { status: 404 }
+            { error: 'Internal server error' },
+            { status: 500 }
         );
     }
-
-    return NextResponse.json(status);
 }
