@@ -23,8 +23,8 @@ export async function createSupabaseServerClient() {
                                 sameSite: 'lax',
                             });
                         });
-                    } catch (error: any) {
-                        console.error('[SupabaseServerClient] Failed to setAll cookies (Expected during SSR):', error.message);
+                    } catch (error) {
+                        console.error('[SupabaseServerClient] Failed to setAll cookies (Expected during SSR):', error instanceof Error ? error.message : String(error));
                     }
                 },
             },
