@@ -6,6 +6,8 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
+    "start:all": "concurrently \"HOSTNAME=0.0.0.0 node .next/standalone/server.js\" \"tsx scripts/start-worker.ts\"",
+    "start:worker": "tsx scripts/start-worker.ts",
     "lint": "eslint",
     "postinstall": "prisma generate"
   },
@@ -33,6 +35,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "recharts": "^3.7.0",
+    "tsx": "^4.21.0",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
@@ -42,6 +45,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/uuid": "^10.0.0",
+    "concurrently": "^9.2.1",
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "prisma": "^5.22.0",
