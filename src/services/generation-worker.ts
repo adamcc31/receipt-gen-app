@@ -15,7 +15,7 @@
  * Start: npx tsx scripts/start-worker.ts
  */
 
-import { Worker, Job } from 'bullmq';
+import { Worker, Job, UnrecoverableError } from 'bullmq';
 import puppeteer, { Browser } from 'puppeteer';
 import archiver from 'archiver';
 import { execSync } from 'child_process';
@@ -191,7 +191,7 @@ async function processJob(job: Job<JobData>): Promise<void> {
 
             if (currentJobState?.status === 'FAILED' && currentJobState?.errorMessage === 'Cancelled by user') {
                 console.log(`[Worker] Job ${jobId} was cancelled by user.`);
-                throw new Error('Cancelled by user');
+                throw new UnrecoverableError('Cancelled by user');
             }
         }
 
