@@ -163,7 +163,13 @@ async function processJob(job: Job<JobData>): Promise<void> {
     });
 
     if (!generationJob) {
-        throw new Error(`GenerationJob ${jobId} not found`);
+        throw new UnrecoverableError(`GenerationJob ${jobId} not found`);
+    }
+
+    // Pre-check: if job was already cancelled/failed before worker picks it up, skip immediately
+    if (generationJob.status === 'FAILED') {
+        console.log(`[Worker] Job ${jobId} already marked as FAILED (${generationJob.errorMessage}), skipping.`);
+        throw new UnrecoverableError(generationJob.errorMessage || 'Job already failed');
     }
 
     // Update status to PROCESSING
