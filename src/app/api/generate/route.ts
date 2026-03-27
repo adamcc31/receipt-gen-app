@@ -4,7 +4,7 @@ import { enqueueGenerationJob } from '@/services/receipt-generator';
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { transactionIds, exportPreferences } = body;
+        const { transactionIds, exportPreferences, idempotencyKey } = body;
 
         if (!transactionIds || !Array.isArray(transactionIds) || transactionIds.length === 0) {
             return NextResponse.json(
@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
         const jobId = await enqueueGenerationJob({
             transactionIds,
             exportPreferences,
+            idempotencyKey,
         });
 
         // Return 202 Accepted with jobId for polling

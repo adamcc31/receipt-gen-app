@@ -94,6 +94,8 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
     const [error, setError] = useState<string | null>(null);
     const [exportModalOpened, { open: openExportModal, close: closeExportModal }] = useDisclosure(false);
     const [progressModalOpened, { open: openProgressModal, close: closeProgressModal }] = useDisclosure(false);
+    const [idempotencyKey, setIdempotencyKey] = useState<string>('');
+    const [activeJobId, setActiveJobId] = useState<string | null>(null);
     const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
     const [typeFilter, setTypeFilter] = useState<string | null>(null);
     const [yearFilter, setYearFilter] = useState<string | null>(null);
@@ -125,6 +127,15 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
     useEffect(() => {
         fetchBatch();
+        
+        // Attempt to resume job if exists in session storage
+        const savedJobId = sessionStorage.getItem('activeGenerationJob');
+        if (savedJobId) {
+            setActiveJobId(savedJobId);
+            setGenerating(true);
+            openProgressModal();
+            pollJobProgress(savedJobId);
+        }
     }, [fetchBatch]);
 
     const handleCellValueChanged = useCallback(async (event: CellValueChangedEvent) => {
@@ -195,6 +206,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 body: JSON.stringify({
                     transactionIds: ids,
                     exportPreferences: preferences,
+                    idempotencyKey: idempotencyKey,
                 }),
             });
 
@@ -204,57 +216,13 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             }
 
             const { jobId } = await response.json();
+            setActiveJobId(jobId);
+            sessionStorage.setItem('activeGenerationJob', jobId);
 
-            // Poll for progress (DB-backed status)
-            const pollInterval = setInterval(async () => {
-                try {
-                    const statusResponse = await fetch(`/api/generate/${jobId}/status`);
-                    const statusData = await statusResponse.json();
-
-                    setProgress(statusData.progress || 0);
-
-                    if (statusData.status === 'COMPLETED') {
-                        clearInterval(pollInterval);
-                        setGenerating(false);
-
-                        showToast({
-                            title: 'Selesai',
-                            message: 'Mengunduh ZIP...',
-                            color: 'green',
-                        });
-
-                        // Download ZIP from Redis cache via fetch+blob
-                        const downloadRes = await fetch(`/api/generate/${jobId}/download`);
-                        if (downloadRes.ok) {
-                            const blob = await downloadRes.blob();
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = `receipts-${new Date().toISOString().split('T')[0]}.zip`;
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                        }
-                        closeProgressModal();
-                        fetchBatch(); // Refresh to show updated statuses
-                    } else if (statusData.status === 'FAILED') {
-                        clearInterval(pollInterval);
-                        setGenerating(false);
-                        setError(statusData.errorMessage || 'Generation failed');
-                        showToast({
-                            title: 'Gagal',
-                            message: statusData.errorMessage || 'Gagal membuat kwitansi.',
-                            color: 'red',
-                        });
-                        closeProgressModal();
-                    }
-                } catch {
-                    // Silently retry on network errors during polling
-                }
-            }, 2000);
+            pollJobProgress(jobId);
         } catch (err) {
             setGenerating(false);
+            setActiveJobId(null);
             setError(err instanceof Error ? err.message : 'Failed to generate receipts');
             showToast({
                 title: 'Gagal',
@@ -262,6 +230,74 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 color: 'red',
             });
             closeProgressModal();
+        }
+    };
+
+    const pollJobProgress = (jobId: string) => {
+        const pollInterval = setInterval(async () => {
+            try {
+                const statusResponse = await fetch(`/api/generate/${jobId}/status`);
+                const statusData = await statusResponse.json();
+
+                setProgress(statusData.progress || 0);
+
+                if (statusData.status === 'COMPLETED') {
+                    clearInterval(pollInterval);
+                    setGenerating(false);
+                    setActiveJobId(null);
+                    sessionStorage.removeItem('activeGenerationJob');
+
+                    showToast({
+                        title: 'Selesai',
+                        message: 'Mengunduh ZIP...',
+                        color: 'green',
+                    });
+
+                    // Download ZIP from Redis cache via fetch+blob
+                    const downloadRes = await fetch(`/api/generate/${jobId}/download`);
+                    if (downloadRes.ok) {
+                        const blob = await downloadRes.blob();
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `receipts-${new Date().toISOString().split('T')[0]}.zip`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }
+                    closeProgressModal();
+                    fetchBatch(); // Refresh to show updated statuses
+                } else if (statusData.status === 'FAILED') {
+                    clearInterval(pollInterval);
+                    setGenerating(false);
+                    setActiveJobId(null);
+                    sessionStorage.removeItem('activeGenerationJob');
+                    
+                    const isCancelled = statusData.errorMessage === 'Cancelled by user';
+                    setError(isCancelled ? null : (statusData.errorMessage || 'Generation failed'));
+                    
+                    showToast({
+                        title: isCancelled ? 'Dibatalkan' : 'Gagal',
+                        message: isCancelled ? 'Proses pembuatan kwitansi dibatalkan.' : (statusData.errorMessage || 'Gagal membuat kwitansi.'),
+                        color: isCancelled ? 'yellow' : 'red',
+                    });
+                    
+                    closeProgressModal();
+                }
+            } catch {
+                // Silently retry on network errors during polling
+            }
+        }, 2000);
+    };
+
+    const handleCancelJob = async () => {
+        if (!activeJobId) return;
+        try {
+            await fetch(`/api/generate/${activeJobId}/cancel`, { method: 'POST' });
+            // Poller status loop will observe 'FAILED' with errorMessage 'Cancelled by user' and terminate modal
+        } catch {
+            showToast({ title: 'Error', message: 'Gagal membatalkan job', color: 'red' });
         }
     };
 
@@ -536,7 +572,10 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 <Group>
                     <Button
                         leftSection={<IconReceipt size={16} />}
-                        onClick={openExportModal}
+                        onClick={() => {
+                            setIdempotencyKey(crypto.randomUUID());
+                            openExportModal();
+                        }}
                         disabled={selectedRows.length === 0 || generating}
                     >
                         Buat Kwitansi ({selectedRows.length})
@@ -709,9 +748,14 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 withCloseButton={!generating}
             >
                 <Stack>
-                    <Text size="sm">
-                        Memproses {selectedRows.length} kwitansi...
-                    </Text>
+                    <Group justify="space-between" align="center">
+                        <Text size="sm">
+                            Memproses {selectedRows.length > 0 ? selectedRows.length : '...'} kwitansi...
+                        </Text>
+                        <Button variant="light" color="red" size="xs" onClick={handleCancelJob}>
+                            Batalkan
+                        </Button>
+                    </Group>
                     <Progress value={progress} animated />
                     <Text size="xs" c="dimmed" ta="center">
                         {progress}% complete

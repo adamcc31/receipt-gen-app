@@ -25,6 +25,7 @@ export interface ExportPreferences {
 export interface GenerateOptions {
     transactionIds: string[];
     exportPreferences: ExportPreferences;
+    idempotencyKey?: string;
 }
 
 // ============================================
@@ -36,11 +37,22 @@ export interface GenerateOptions {
  * Returns the jobId for status polling.
  */
 export async function enqueueGenerationJob(options: GenerateOptions): Promise<string> {
-    const { transactionIds, exportPreferences } = options;
+    const { transactionIds, exportPreferences, idempotencyKey } = options;
+
+    if (idempotencyKey) {
+        const existingJob = await prisma.generationJob.findUnique({
+            where: { id: idempotencyKey }
+        });
+        if (existingJob) {
+            console.log(`[Generator] Duplicate request prevented for job ${idempotencyKey}`);
+            return existingJob.id;
+        }
+    }
 
     // 1. Create persistent job record in PostgreSQL
     const generationJob = await prisma.generationJob.create({
         data: {
+            ...(idempotencyKey ? { id: idempotencyKey } : {}),
             transactionIds,
             formats: exportPreferences.formats,
             folderStructure: exportPreferences.folderStructure,

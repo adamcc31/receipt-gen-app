@@ -177,9 +177,24 @@ async function processJob(job: Job<JobData>): Promise<void> {
 
     const browser = await getBrowser();
     const results: GeneratedBuffers[] = [];
+    
+    let cancelCheckCounter = 0;
 
     // Process each transaction
     for (let i = 0; i < transactionIds.length; i++) {
+        // Check for cancellation every 5 items and on the first item
+        if (cancelCheckCounter++ % 5 === 0) {
+            const currentJobState = await prisma.generationJob.findUnique({
+                where: { id: jobId },
+                select: { status: true, errorMessage: true }
+            });
+
+            if (currentJobState?.status === 'FAILED' && currentJobState?.errorMessage === 'Cancelled by user') {
+                console.log(`[Worker] Job ${jobId} was cancelled by user.`);
+                throw new Error('Cancelled by user');
+            }
+        }
+
         const txId = transactionIds[i];
         const txStart = Date.now();
 
@@ -195,6 +210,7 @@ async function processJob(job: Job<JobData>): Promise<void> {
         }
 
         // Update progress in DB
+        // Do not update status here if cancelled, but since we are mid-loop we just update progress
         await prisma.generationJob.update({
             where: { id: jobId },
             data: { progress: i + 1 },
