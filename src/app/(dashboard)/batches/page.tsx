@@ -20,6 +20,8 @@ import {
     SegmentedControl,
     Checkbox,
     Divider,
+    Progress,
+    Loader,
 } from '@mantine/core';
 import {
     IconEye,
@@ -29,6 +31,7 @@ import {
     IconRefresh,
     IconFileSpreadsheet,
     IconAdjustments,
+    IconClock,
 } from '@tabler/icons-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { TableSkeleton } from '@/components/ui/Skeletons';
@@ -50,6 +53,15 @@ const statusColors: Record<string, string> = {
     FAILED: 'red',
 };
 
+interface ActiveJob {
+    id: string;
+    status: string;
+    progress: number;
+    total: number;
+    createdAt: string;
+    transactionCount: number;
+}
+
 export default function BatchesPage() {
     const { debouncedQuery } = useGlobalSearch();
 
@@ -64,6 +76,8 @@ export default function BatchesPage() {
         totalRecords: true,
         status: true,
     });
+    const [activeJobs, setActiveJobs] = useState<ActiveJob[]>([]);
+    const [cancelingJobId, setCancelingJobId] = useState<string | null>(null);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -73,7 +87,24 @@ export default function BatchesPage() {
 
     useEffect(() => {
         fetchBatches();
+        fetchActiveJobs();
+        
+        // Poll for active jobs every 3 seconds
+        const interval = setInterval(fetchActiveJobs, 3000);
+        return () => clearInterval(interval);
     }, []);
+
+    const fetchActiveJobs = async () => {
+        try {
+            const response = await fetch('/api/generate/active');
+            if (response.ok) {
+                const data = await response.json();
+                setActiveJobs(data);
+            }
+        } catch (error) {
+            console.error('Failed to fetch active jobs:', error);
+        }
+    };
 
     const fetchBatches = async () => {
         setLoading(true);
@@ -100,6 +131,21 @@ export default function BatchesPage() {
             }
         } catch (error) {
             console.error('Failed to delete batch:', error);
+        }
+    };
+
+    const handleCancelJob = async (jobId: string) => {
+        setCancelingJobId(jobId);
+        try {
+            const response = await fetch(`/api/generate/${jobId}/cancel`, { method: 'POST' });
+            if (response.ok) {
+                // Instantly remove from UI or let the next poll catch it
+                setActiveJobs(prev => prev.filter(job => job.id !== jobId));
+            }
+        } catch (error) {
+            console.error('Failed to cancel job:', error);
+        } finally {
+            setCancelingJobId(null);
         }
     };
 
@@ -153,6 +199,53 @@ export default function BatchesPage() {
                     </Button>
                 </Group>
             </Group>
+
+            {/* Active Jobs Queue Tracker */}
+            {activeJobs.length > 0 && (
+                <Card shadow="sm" padding="lg" radius="md" withBorder mb="xl">
+                    <Group mb="md">
+                        <IconClock size={20} color="var(--mantine-color-blue-6)" />
+                        <Title order={4}>Active Generation Queue ({activeJobs.length})</Title>
+                    </Group>
+                    
+                    <Stack gap="md">
+                        {activeJobs.map((job) => {
+                            const percent = job.total > 0 ? Math.round((job.progress / job.total) * 100) : 0;
+                            return (
+                                <Box key={job.id} p="sm" style={{ border: '1px solid var(--mantine-color-gray-3)', borderRadius: 'var(--mantine-radius-md)' }}>
+                                    <Group justify="space-between" align="center" mb="xs">
+                                        <div>
+                                            <Group gap="xs" mb={4}>
+                                                <Badge color={statusColors[job.status] || 'gray'}>{job.status}</Badge>
+                                                <Text size="sm" fw={600}>
+                                                    Job ID: {job.id.substring(0, 8)}...
+                                                </Text>
+                                            </Group>
+                                            <Text size="xs" c="dimmed">
+                                                {job.transactionCount} transactions • Started {new Date(job.createdAt).toLocaleTimeString()}
+                                            </Text>
+                                        </div>
+                                        <Button 
+                                            variant="light" 
+                                            color="red" 
+                                            size="xs" 
+                                            onClick={() => handleCancelJob(job.id)}
+                                            disabled={cancelingJobId === job.id}
+                                            leftSection={cancelingJobId === job.id ? <Loader size="xs" /> : undefined}
+                                        >
+                                            Batalkan
+                                        </Button>
+                                    </Group>
+                                    <Progress value={percent} animated={job.status === 'PROCESSING'} />
+                                    <Text size="xs" ta="right" mt={4} c="dimmed">
+                                        {job.progress} / {job.total} ({percent}%)
+                                    </Text>
+                                </Box>
+                            );
+                        })}
+                    </Stack>
+                </Card>
+            )}
 
             <Card padding="md" radius="md" withBorder>
                 {uiFlags.batchesListEnhancements ? (
